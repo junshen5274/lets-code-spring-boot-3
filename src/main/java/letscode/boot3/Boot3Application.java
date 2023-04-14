@@ -17,7 +17,7 @@ public class Boot3Application {
 				"postgres", "postgres"
 		);
 		dataSource.setDriverClassName(Driver.class.getName());
-		
+
 		var template = new JdbcTemplate(dataSource);
 		template.afterPropertiesSet();
 

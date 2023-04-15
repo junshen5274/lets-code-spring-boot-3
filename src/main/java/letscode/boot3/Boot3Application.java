@@ -3,8 +3,10 @@ package letscode.boot3;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.Assert;
 
 import java.sql.Driver;
@@ -23,7 +25,13 @@ public class Boot3Application {
         var template = new JdbcTemplate(dataSource);
         template.afterPropertiesSet();
 
-        var cs = new DefaultCustomerService(template);
+        var ptm = new DataSourceTransactionManager(dataSource);
+        ptm.afterPropertiesSet();
+
+        var tt = new TransactionTemplate(ptm);
+        tt.afterPropertiesSet();
+
+        var cs = new CustomerService(template, tt);
 
         var maria = cs.add("Maria");
         var ernie = cs.add("Ernie");
@@ -35,46 +43,55 @@ public class Boot3Application {
 
     @Slf4j
     static
-    class DefaultCustomerService {
+    class CustomerService {
         private final JdbcTemplate template;
+        private final TransactionTemplate tt;
         private final RowMapper<Customer> customerRowMapper =
                 (rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"));
 
-        DefaultCustomerService(JdbcTemplate template) {
+        CustomerService(JdbcTemplate template, TransactionTemplate tt) {
             this.template = template;
+            this.tt = tt;
         }
 
         Customer add(String name) {
-            var al = new ArrayList<Map<String, Object>>();
-            al.add(Map.of("id", Long.class));
-            var keyHolder = new GeneratedKeyHolder(al);
-
-            this.template.update(
-                    con -> {
-                        var ps = con.prepareStatement("insert into customers (name) values (?)",
-                                Statement.RETURN_GENERATED_KEYS);
-                        ps.setString(1, name);
-                        return ps;
-                    },
-                    keyHolder
-            );
-
-            var generatedId = keyHolder.getKeys().get("id");
-            log.info("generatedId: {}", generatedId.toString());
-            Assert.state(generatedId instanceof Number, "The generatedId must be a Number!");
-            if (generatedId instanceof Number) {
+            return tt.execute(status -> {
+                var al = new ArrayList<Map<String, Object>>();
+                al.add(Map.of("id", Long.class));
+                var keyHolder = new GeneratedKeyHolder(al);
+                template.update(
+                        con -> {
+                            var ps = con.prepareStatement("""
+                                    insert into customers (name) values (?)
+                                    on conflict on constraint customers_name_key do update set name = excluded.name
+                                    """,
+                                    Statement.RETURN_GENERATED_KEYS);
+                            ps.setString(1, name);
+                            return ps;
+                        },
+                        keyHolder
+                );
+                var generatedId = keyHolder.getKeys().get("id");
+                log.info("generatedId: {}", generatedId.toString());
+                Assert.state(generatedId instanceof Number, "The generatedId must be a Number!");
                 return findCustomerById(((Number) generatedId).intValue());
-            }
-            return null;
+            });
         }
 
         Customer findCustomerById(Integer id) {
-            return this.template.queryForObject(
-                    "select id, name from customers where id = ?", this.customerRowMapper, id);
+//            return tt.execute(new TransactionCallback<Customer>() {
+//                @Override
+//                public Customer doInTransaction(TransactionStatus status) {
+//                    return template.queryForObject(
+//                            "select id, name from customers where id = ?", customerRowMapper, id);
+//                }
+//            });
+            return tt.execute(status -> template.queryForObject(
+                    "select id, name from customers where id = ?", customerRowMapper, id));
         }
 
         Collection<Customer> all() {
-            return this.template.query("select * from customers", this.customerRowMapper);
+            return tt.execute(status -> template.query("select * from customers", this.customerRowMapper));
         }
     }
 

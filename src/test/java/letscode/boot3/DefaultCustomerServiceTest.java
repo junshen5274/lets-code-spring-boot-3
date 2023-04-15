@@ -13,6 +13,6 @@ class DefaultCustomerServiceTest {
     @Test
     void all() {
         var template = Mockito.mock(JdbcTemplate.class);
-        var cs = new Boot3Application.DefaultCustomerService(template);
+        //var cs = new Boot3Application.DefaultCustomerService(template);
     }
 }

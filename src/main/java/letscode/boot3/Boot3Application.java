@@ -11,11 +11,41 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.Assert;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.sql.Driver;
 import java.sql.Statement;
 import java.util.*;
 
+@Slf4j
 public class Boot3Application {
+
+    private static CustomerService transactionalCustomerService(
+            TransactionTemplate tt,
+            CustomerService delegate) {
+        var transactionalCustomerService = Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+                new Class[]{CustomerService.class}, new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        log.info("Invoking " + method.getName() + " with arguments " + args);
+                        return tt.execute(new TransactionCallback<Object>() {
+                            @Override
+                            public Object doInTransaction(TransactionStatus status) {
+                                try {
+                                    return method.invoke(delegate, args);
+                                } catch (IllegalAccessException e) {
+                                    throw new RuntimeException(e);
+                                } catch (InvocationTargetException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        });
+                    }
+                });
+        return (CustomerService) transactionalCustomerService;
+    }
 
     public static void main(String[] args) {
         var dataSource = new DriverManagerDataSource(
@@ -32,8 +62,7 @@ public class Boot3Application {
 
         var tt = new TransactionTemplate(ptm);
         tt.afterPropertiesSet();
-
-        var cs = new TransactionalCustomerService(template, tt);
+        var cs = transactionalCustomerService(tt, new DefaultCustomerService(template));
 
         var maria = cs.add("Maria");
         var ernie = cs.add("Ernie");
@@ -43,18 +72,25 @@ public class Boot3Application {
         all.forEach(c -> System.out.println(c.toString()));
     }
 
+    interface CustomerService {
+        Customer add(String name);
+        Customer findCustomerById(Integer id);
+        Collection<Customer> all();
+    }
+
     @Slf4j
     static
-    class CustomerService {
+    class DefaultCustomerService implements CustomerService {
         private final JdbcTemplate template;
         private final RowMapper<Customer> customerRowMapper =
                 (rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"));
 
-        CustomerService(JdbcTemplate template) {
+        DefaultCustomerService(JdbcTemplate template) {
             this.template = template;
         }
 
-        Customer add(String name) {
+        @Override
+        public Customer add(String name) {
             var al = new ArrayList<Map<String, Object>>();
             al.add(Map.of("id", Long.class));
             var keyHolder = new GeneratedKeyHolder(al);
@@ -77,46 +113,41 @@ public class Boot3Application {
 
         }
 
-        Customer findCustomerById(Integer id) {
-//            return tt.execute(new TransactionCallback<Customer>() {
-//                @Override
-//                public Customer doInTransaction(TransactionStatus status) {
-//                    return template.queryForObject(
-//                            "select id, name from customers where id = ?", customerRowMapper, id);
-//                }
-//            });
+        @Override
+        public Customer findCustomerById(Integer id) {
             return template.queryForObject(
                     "select id, name from customers where id = ?", customerRowMapper, id);
         }
 
-        Collection<Customer> all() {
+        @Override
+        public Collection<Customer> all() {
             return template.query("select * from customers", this.customerRowMapper);
         }
     }
 
-    static class TransactionalCustomerService extends CustomerService {
-        private final TransactionTemplate tt;
-
-        TransactionalCustomerService(JdbcTemplate template, TransactionTemplate tt) {
-            super(template);
-            this.tt = tt;
-        }
-
-        @Override
-        Customer add(String name) {
-            return this.tt.execute(status -> super.add(name));
-        }
-
-        @Override
-        Customer findCustomerById(Integer id) {
-            return this.tt.execute(status -> super.findCustomerById(id));
-        }
-
-        @Override
-        Collection<Customer> all() {
-            return this.tt.execute(status -> super.all());
-        }
-    }
+//    static class TransactionalCustomerService extends CustomerService {
+//        private final TransactionTemplate tt;
+//
+//        TransactionalCustomerService(JdbcTemplate template, TransactionTemplate tt) {
+//            super(template);
+//            this.tt = tt;
+//        }
+//
+//        @Override
+//        Customer add(String name) {
+//            return this.tt.execute(status -> super.add(name));
+//        }
+//
+//        @Override
+//        Customer findCustomerById(Integer id) {
+//            return this.tt.execute(status -> super.findCustomerById(id));
+//        }
+//
+//        @Override
+//        Collection<Customer> all() {
+//            return this.tt.execute(status -> super.all());
+//        }
+//    }
 
     record Customer(Integer id, String name) {
     }

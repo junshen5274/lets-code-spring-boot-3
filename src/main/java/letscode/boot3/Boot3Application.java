@@ -2,11 +2,10 @@ package letscode.boot3;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-import javax.sql.DataSource;
 import java.sql.Driver;
-import java.util.ArrayList;
 import java.util.Collection;
 
 public class Boot3Application {
@@ -30,29 +29,15 @@ public class Boot3Application {
 	static
 	class DefaultCustomerService {
 		private final JdbcTemplate template;
+		private final RowMapper<Customer> customerRowMapper =
+				(rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"));
 
 		DefaultCustomerService(JdbcTemplate template) {
 			this.template = template;
 		}
 
 		Collection<Customer> all() {
-			var listOfCustomers = new ArrayList<Customer>();
-			try {
-				try (var connection = this.dataSource.getConnection()) {
-					try (var stmt = connection.createStatement()) {
-						try (var resultSet = stmt.executeQuery("select * from customers")) {
-							while (resultSet.next()) {
-								var name = resultSet.getString("name");
-								var id = resultSet.getInt("id");
-								listOfCustomers.add(new Customer(id, name));
-							}
-						}
-					}
-				}
-			} catch (Exception e) {
-				log.error("something went wrong", e);
-			}
-			return listOfCustomers;
+			return this.template.query("select * from customers", this.customerRowMapper);
 		}
 	}
 

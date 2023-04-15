@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.Assert;
 
@@ -31,7 +33,7 @@ public class Boot3Application {
         var tt = new TransactionTemplate(ptm);
         tt.afterPropertiesSet();
 
-        var cs = new CustomerService(template, tt);
+        var cs = new TransactionalCustomerService(template, tt);
 
         var maria = cs.add("Maria");
         var ernie = cs.add("Ernie");
@@ -45,37 +47,34 @@ public class Boot3Application {
     static
     class CustomerService {
         private final JdbcTemplate template;
-        private final TransactionTemplate tt;
         private final RowMapper<Customer> customerRowMapper =
                 (rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"));
 
-        CustomerService(JdbcTemplate template, TransactionTemplate tt) {
+        CustomerService(JdbcTemplate template) {
             this.template = template;
-            this.tt = tt;
         }
 
         Customer add(String name) {
-            return tt.execute(status -> {
-                var al = new ArrayList<Map<String, Object>>();
-                al.add(Map.of("id", Long.class));
-                var keyHolder = new GeneratedKeyHolder(al);
-                template.update(
-                        con -> {
-                            var ps = con.prepareStatement("""
-                                    insert into customers (name) values (?)
-                                    on conflict on constraint customers_name_key do update set name = excluded.name
-                                    """,
-                                    Statement.RETURN_GENERATED_KEYS);
-                            ps.setString(1, name);
-                            return ps;
-                        },
-                        keyHolder
-                );
-                var generatedId = keyHolder.getKeys().get("id");
-                log.info("generatedId: {}", generatedId.toString());
-                Assert.state(generatedId instanceof Number, "The generatedId must be a Number!");
-                return findCustomerById(((Number) generatedId).intValue());
-            });
+            var al = new ArrayList<Map<String, Object>>();
+            al.add(Map.of("id", Long.class));
+            var keyHolder = new GeneratedKeyHolder(al);
+            template.update(
+                    con -> {
+                        var ps = con.prepareStatement("""
+                                        insert into customers (name) values (?)
+                                        on conflict on constraint customers_name_key do update set name = excluded.name
+                                        """,
+                                Statement.RETURN_GENERATED_KEYS);
+                        ps.setString(1, name);
+                        return ps;
+                    },
+                    keyHolder
+            );
+            var generatedId = keyHolder.getKeys().get("id");
+            log.info("generatedId: {}", generatedId.toString());
+            Assert.state(generatedId instanceof Number, "The generatedId must be a Number!");
+            return findCustomerById(((Number) generatedId).intValue());
+
         }
 
         Customer findCustomerById(Integer id) {
@@ -86,12 +85,36 @@ public class Boot3Application {
 //                            "select id, name from customers where id = ?", customerRowMapper, id);
 //                }
 //            });
-            return tt.execute(status -> template.queryForObject(
-                    "select id, name from customers where id = ?", customerRowMapper, id));
+            return template.queryForObject(
+                    "select id, name from customers where id = ?", customerRowMapper, id);
         }
 
         Collection<Customer> all() {
-            return tt.execute(status -> template.query("select * from customers", this.customerRowMapper));
+            return template.query("select * from customers", this.customerRowMapper);
+        }
+    }
+
+    static class TransactionalCustomerService extends CustomerService {
+        private final TransactionTemplate tt;
+
+        TransactionalCustomerService(JdbcTemplate template, TransactionTemplate tt) {
+            super(template);
+            this.tt = tt;
+        }
+
+        @Override
+        Customer add(String name) {
+            return this.tt.execute(status -> super.add(name));
+        }
+
+        @Override
+        Customer findCustomerById(Integer id) {
+            return this.tt.execute(status -> super.findCustomerById(id));
+        }
+
+        @Override
+        Collection<Customer> all() {
+            return this.tt.execute(status -> super.all());
         }
     }
 

@@ -2,6 +2,7 @@ package letscode.boot3;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 
@@ -11,7 +12,7 @@ class DefaultCustomerServiceTest {
 
     @Test
     void all() {
-        var ds = Mockito.mock(DataSource.class);
-        var cs = new Boot3Application.DefaultCustomerService(ds);
+        var template = Mockito.mock(JdbcTemplate.class);
+        var cs = new Boot3Application.DefaultCustomerService(template);
     }
 }

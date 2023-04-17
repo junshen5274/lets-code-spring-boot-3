@@ -4,19 +4,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.aop.framework.ProxyFactoryBean;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
@@ -54,29 +51,10 @@ public class Boot3Application {
     }
 }
 
+@Slf4j
 @Configuration
+@ComponentScan
 class DataConfiguration {
-
-    // Create CustomerService bean by implementing BeanDefinitionRegistryPostProcessor
-    // But this doesn't have the transaction included
-    static class MyBeanDefinitionRegistryPostProcessor implements BeanDefinitionRegistryPostProcessor {
-        @Override
-        public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-            registry.registerBeanDefinition("cs",
-                    BeanDefinitionBuilder.genericBeanDefinition(CustomerService.class)
-                    .addConstructorArgReference("jdbcTemplate")
-                    .getBeanDefinition());
-        }
-
-        @Override
-        public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-        }
-    }
-
-    @Bean
-    static MyBeanDefinitionRegistryPostProcessor myBeanDefinitionRegistryPostProcessor() {
-        return new MyBeanDefinitionRegistryPostProcessor();
-    }
 
     private static CustomerService transactionalCustomerService(
             TransactionTemplate tt,
@@ -117,23 +95,17 @@ class DataConfiguration {
 
     @Bean
     JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        var template = new JdbcTemplate(dataSource);
-        template.afterPropertiesSet();
-        return template;
+        return new JdbcTemplate(dataSource);
     }
 
     @Bean
     DataSourceTransactionManager dataSourceTransactionManager(DataSource dataSource) {
-        var ptm = new DataSourceTransactionManager(dataSource);
-        ptm.afterPropertiesSet();
-        return ptm;
+        return new DataSourceTransactionManager(dataSource);
     }
 
     @Bean
     TransactionTemplate transactionTemplate(PlatformTransactionManager ptm) {
-        var tt = new TransactionTemplate(ptm);
-        tt.afterPropertiesSet();
-        return tt;
+        return new TransactionTemplate(ptm);
     }
 
     /*@Bean
@@ -143,6 +115,7 @@ class DataConfiguration {
 }
 
 @Slf4j
+@Service
 class CustomerService {
     private final JdbcTemplate template;
     private final RowMapper<Customer> customerRowMapper =

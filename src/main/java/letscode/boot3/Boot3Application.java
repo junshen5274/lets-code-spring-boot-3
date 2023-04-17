@@ -4,6 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.aop.framework.ProxyFactoryBean;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionBuilder;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,6 +56,27 @@ public class Boot3Application {
 
 @Configuration
 class DataConfiguration {
+
+    // Create CustomerService bean by implementing BeanDefinitionRegistryPostProcessor
+    // But this doesn't have the transaction included
+    static class MyBeanDefinitionRegistryPostProcessor implements BeanDefinitionRegistryPostProcessor {
+        @Override
+        public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+            registry.registerBeanDefinition("cs",
+                    BeanDefinitionBuilder.genericBeanDefinition(CustomerService.class)
+                    .addConstructorArgReference("jdbcTemplate")
+                    .getBeanDefinition());
+        }
+
+        @Override
+        public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        }
+    }
+
+    @Bean
+    static MyBeanDefinitionRegistryPostProcessor myBeanDefinitionRegistryPostProcessor() {
+        return new MyBeanDefinitionRegistryPostProcessor();
+    }
 
     private static CustomerService transactionalCustomerService(
             TransactionTemplate tt,
@@ -110,10 +136,10 @@ class DataConfiguration {
         return tt;
     }
 
-    @Bean
+    /*@Bean
     CustomerService defaultCustomerService(TransactionTemplate transactionTemplate, JdbcTemplate jdbcTemplate) {
         return transactionalCustomerService(transactionTemplate, new CustomerService(jdbcTemplate));
-    }
+    }*/
 }
 
 @Slf4j

@@ -38,7 +38,7 @@ public class Boot3Application {
         applicationContext.refresh();
         applicationContext.start();
 
-        var cs = applicationContext.getBean(DefaultCustomerService.class);
+        var cs = applicationContext.getBean(CustomerService.class);
 
         var maria = cs.add("Maria");
         var ernie = cs.add("Ernie");
@@ -52,9 +52,9 @@ public class Boot3Application {
 @Configuration
 class DataConfiguration {
 
-    private static DefaultCustomerService transactionalCustomerService(
+    private static CustomerService transactionalCustomerService(
             TransactionTemplate tt,
-            DefaultCustomerService delegate) {
+            CustomerService delegate) {
 
         var pfb = new ProxyFactoryBean();
         pfb.setTarget(delegate);
@@ -76,7 +76,7 @@ class DataConfiguration {
                 });
             }
         });
-        return (DefaultCustomerService) pfb.getObject();
+        return (CustomerService) pfb.getObject();
     }
 
     @Bean
@@ -111,18 +111,18 @@ class DataConfiguration {
     }
 
     @Bean
-    DefaultCustomerService defaultCustomerService(TransactionTemplate transactionTemplate, JdbcTemplate jdbcTemplate) {
-        return transactionalCustomerService(transactionTemplate, new DefaultCustomerService(jdbcTemplate));
+    CustomerService defaultCustomerService(TransactionTemplate transactionTemplate, JdbcTemplate jdbcTemplate) {
+        return transactionalCustomerService(transactionTemplate, new CustomerService(jdbcTemplate));
     }
 }
 
 @Slf4j
-class DefaultCustomerService {
+class CustomerService {
     private final JdbcTemplate template;
     private final RowMapper<Customer> customerRowMapper =
             (rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"));
 
-    DefaultCustomerService(JdbcTemplate template) {
+    CustomerService(JdbcTemplate template) {
         this.template = template;
     }
 

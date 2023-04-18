@@ -4,6 +4,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.aop.framework.ProxyFactoryBean;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -112,6 +115,33 @@ class DataConfiguration {
     CustomerService defaultCustomerService(TransactionTemplate transactionTemplate, JdbcTemplate jdbcTemplate) {
         return transactionalCustomerService(transactionTemplate, new CustomerService(jdbcTemplate));
     }*/
+
+    @Bean
+    static TransactionBeanPostProcessor transactionBeanPostProcessor(BeanFactory beanFactory) {
+        return new TransactionBeanPostProcessor(beanFactory);
+    }
+
+    static class TransactionBeanPostProcessor implements BeanPostProcessor {
+
+        private final BeanFactory beanFactory;
+
+        TransactionBeanPostProcessor(BeanFactory beanFactory) {
+            this.beanFactory = beanFactory;
+        }
+
+        @Override
+        public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+            return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
+        }
+
+        @Override
+        public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+            if (bean instanceof CustomerService cs) {
+                return transactionalCustomerService(beanFactory.getBean(TransactionTemplate.class), cs);
+            }
+            return BeanPostProcessor.super.postProcessAfterInitialization(bean, beanName);
+        }
+    }
 }
 
 @Slf4j

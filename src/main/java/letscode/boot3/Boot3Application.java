@@ -19,6 +19,8 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.Assert;
@@ -44,6 +46,7 @@ public class Boot3Application {
         applicationContext.start();
 
         var cs = applicationContext.getBean(CustomerService.class);
+        log.info("cs.class={}", cs.getClass());
 
         var maria = cs.add("Maria");
         var ernie = cs.add("Ernie");
@@ -56,10 +59,11 @@ public class Boot3Application {
 
 @Slf4j
 @Configuration
+@EnableTransactionManagement
 @ComponentScan
 class DataConfiguration {
 
-    private static CustomerService transactionalCustomerService(
+    /*private static CustomerService transactionalCustomerService(
             TransactionTemplate tt,
             CustomerService delegate) {
 
@@ -84,7 +88,7 @@ class DataConfiguration {
             }
         });
         return (CustomerService) pfb.getObject();
-    }
+    }*/
 
     @Bean
     DriverManagerDataSource dataSource() {
@@ -116,7 +120,7 @@ class DataConfiguration {
         return transactionalCustomerService(transactionTemplate, new CustomerService(jdbcTemplate));
     }*/
 
-    @Bean
+    /*@Bean
     static TransactionBeanPostProcessor transactionBeanPostProcessor(BeanFactory beanFactory) {
         return new TransactionBeanPostProcessor(beanFactory);
     }
@@ -136,16 +140,19 @@ class DataConfiguration {
 
         @Override
         public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+            log.info("postProcessing bean named {} : {}", beanName, bean.toString());
             if (bean instanceof CustomerService cs) {
+                // At here, we are replacing the CustomerService to the proxy class transactionalCustomerService
                 return transactionalCustomerService(beanFactory.getBean(TransactionTemplate.class), cs);
             }
             return BeanPostProcessor.super.postProcessAfterInitialization(bean, beanName);
         }
-    }
+    }*/
 }
 
 @Slf4j
 @Service
+@Transactional
 class CustomerService {
     private final JdbcTemplate template;
     private final RowMapper<Customer> customerRowMapper =

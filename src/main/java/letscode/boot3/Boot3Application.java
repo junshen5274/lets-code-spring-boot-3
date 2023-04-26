@@ -7,10 +7,8 @@ import org.springframework.aop.framework.ProxyFactoryBean;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.*;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -61,6 +59,7 @@ public class Boot3Application {
 @Configuration
 @EnableTransactionManagement
 @ComponentScan
+@PropertySource("classpath:/application.properties")
 class DataConfiguration {
 
     /*private static CustomerService transactionalCustomerService(
@@ -91,10 +90,11 @@ class DataConfiguration {
     }*/
 
     @Bean
-    DriverManagerDataSource dataSource() {
+    DriverManagerDataSource dataSource(Environment environment) {
         var dataSource = new DriverManagerDataSource(
-                "jdbc:postgresql://localhost/postgres",
-                "postgres", "postgres"
+                environment.getProperty("database.url"),
+                environment.getProperty("database.username"),
+                environment.getProperty("database.password")
         );
         dataSource.setDriverClassName(Driver.class.getName());
         return dataSource;

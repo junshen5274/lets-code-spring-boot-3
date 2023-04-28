@@ -1,9 +1,10 @@
 package letscode.boot3;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -26,7 +27,7 @@ public class Boot3Application {
     }
 
     @Bean
-    ApplicationRunner runner(CustomerService cs) {
+    ApplicationListener<ApplicationReadyEvent> applicationReadyEventApplicationListener(CustomerService cs) {
         return event -> {
             log.info("cs.class={}", cs.getClass());
             var maria = cs.add("Maria");

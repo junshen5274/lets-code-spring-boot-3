@@ -1,14 +1,13 @@
 package letscode.boot3;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -18,32 +17,24 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
+@Slf4j
 @SpringBootApplication
 public class Boot3Application {
 
     public static void main(String[] args) {
         SpringApplication.run(Boot3Application.class, args);
     }
-}
 
-@Slf4j
-@Component
-class MyapplicationRunner implements ApplicationRunner {
-
-    private final CustomerService cs;
-
-    MyapplicationRunner(CustomerService customerService) {
-        this.cs = customerService;
-    }
-
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
-        log.info("cs.class={}", cs.getClass());
-        var maria = cs.add("Maria");
-        var ernie = cs.add("Ernie");
-        var all = cs.all();
-        Assert.state(all.contains(maria) && all.contains(ernie), "valid results");
-        all.forEach(c -> System.out.println(c.toString()));
+    @Bean
+    ApplicationRunner runner(CustomerService cs) {
+        return event -> {
+            log.info("cs.class={}", cs.getClass());
+            var maria = cs.add("Maria");
+            var ernie = cs.add("Ernie");
+            var all = cs.all();
+            Assert.state(all.contains(maria) && all.contains(ernie), "valid results");
+            all.forEach(c -> System.out.println(c.toString()));
+        };
     }
 }
 

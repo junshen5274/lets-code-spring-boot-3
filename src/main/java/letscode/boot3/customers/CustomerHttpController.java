@@ -1,6 +1,10 @@
 package letscode.boot3.customers;
 
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.hateoas.RepresentationModel;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,35 +35,62 @@ class CustomerHttpController {
         this.customerService = customerService;
     }
 
-    @GetMapping("/customers")
-    Collection<Customer> customers() {
-        return this.customerService.all();
+    @Data
+    @EqualsAndHashCode(callSuper = true)
+    @RequiredArgsConstructor
+    static class CustomerModel extends RepresentationModel<CustomerModel> {
+        private final Customer customer;
     }
 
-    @GetMapping("/customers/{id}")
+    @Data
+    @EqualsAndHashCode(callSuper = true)
+    @RequiredArgsConstructor
+    static class CustomersModel extends RepresentationModel<CustomersModel> {
+        private final Collection<Customer> customers;
+    }
+
     /**
      * After run URL http://localhost:8080/customers/1
      * This endpoint will return below response:
      *
      * {
-     * "id":1,
-     * "name":"Maria",
+     * "customer":{"id":1,"name":"Maria"},
      * "_links":
      *      {"customers":{"href":"http://localhost:8080/customers"},
      *       "self":{"href":"http://localhost:8080/customers/1"}
      *      }
      * }
-     *
      */
-    HttpEntity<CustomerRepresentationModel> customerById(@PathVariable Integer id) {
+    @GetMapping("/customers/{id}")
+    HttpEntity<CustomerModel> customerById(@PathVariable Integer id) {
         var customer = this.customerService.findCustomerById(id);
-        var customerRepresentationModel = new CustomerRepresentationModel(
-                customer.id(), customer.name()
-        );
+        var customerRepresentationModel = new CustomerModel(customer);
         // provide the link so that the invoker knows where to go
         var link = linkTo(methodOn(CustomerHttpController.class).customers()).withRel("customers");
         customerRepresentationModel.add(link);
         customerRepresentationModel.add(linkTo(methodOn(CustomerHttpController.class).customerById(id)).withSelfRel());
-        return new ResponseEntity<>(customerRepresentationModel, HttpStatus.OK);
+        return ResponseEntity.ok(customerRepresentationModel);
+    }
+
+    /**
+     * After run URL http://localhost:8080/customers
+     * This endpoint will return below response:
+     *
+     * {
+     * "customers":[{"id":1,"name":"Maria"},{"id":2,"name":"Ernie"}],
+     * "_links":
+     *      {
+     *      "self":{"href":"http://localhost:8080/customers"},
+     *      "customer-by-id":{"href":"http://localhost:8080/customers/{id}","templated":true}
+     *      }
+     * }
+     */
+    @GetMapping("/customers")
+    HttpEntity<CustomersModel> customers() {
+        var customers = this.customerService.all();
+        var customersRepresentationModel = new CustomersModel(customers);
+        customersRepresentationModel.add(linkTo(methodOn(CustomerHttpController.class).customers()).withSelfRel());
+        customersRepresentationModel.add(linkTo(methodOn(CustomerHttpController.class).customerById(null)).withRel("customer-by-id"));
+        return ResponseEntity.ok(customersRepresentationModel);
     }
 }

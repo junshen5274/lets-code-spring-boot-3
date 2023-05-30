@@ -15,8 +15,8 @@ public class CustomerInitializationConfiguration {
     ApplicationListener<ApplicationReadyEvent> applicationReadyEventApplicationListener(CustomerService cs) {
         return event -> {
             log.info("cs.class={}", cs.getClass());
-            var maria = cs.add("Maria");
-            var ernie = cs.add("Ernie");
+            var maria = cs.add("Maria", false);
+            var ernie = cs.add("Ernie", true);
             var all = cs.all();
             Assert.state(all.contains(maria) && all.contains(ernie), "valid results");
             all.forEach(c -> System.out.println(c.toString()));

@@ -21,25 +21,28 @@ class CustomerService {
     private final ApplicationEventPublisher publisher;
     private final JdbcTemplate template;
     private final RowMapper<Customer> customerRowMapper =
-            (rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"));
+            (rs, rowNum) -> new Customer(rs.getInt("id"), rs.getString("name"), rs.getBoolean("subscribed"));
 
     CustomerService(JdbcTemplate template, ApplicationEventPublisher publisher) {
         this.template = template;
         this.publisher = publisher;
     }
 
-    public Customer add(String name) {
+    public Customer add(String name, boolean subscribed) {
         var al = new ArrayList<Map<String, Object>>();
         al.add(Map.of("id", Long.class));
         var keyHolder = new GeneratedKeyHolder(al);
         template.update(
                 con -> {
                     var ps = con.prepareStatement("""
-                                    insert into customers (name) values (?)
-                                    on conflict on constraint customers_name_key do update set name = excluded.name
+                                    insert into customers (name, subscribed) values (?, ?)
+                                    on conflict on constraint customers_name_key do update set 
+                                    name = excluded.name,
+                              subscribed = excluded.subscribed
                                     """,
                             Statement.RETURN_GENERATED_KEYS);
                     ps.setString(1, name);
+                    ps.setBoolean(2, subscribed);
                     return ps;
                 },
                 keyHolder
@@ -54,7 +57,7 @@ class CustomerService {
 
     public Customer findCustomerById(Integer id) {
         return template.queryForObject(
-                "select id, name from customers where id = ?", customerRowMapper, id);
+                "select id, name, subscribed from customers where id = ?", customerRowMapper, id);
     }
 
     public Collection<Customer> all() {

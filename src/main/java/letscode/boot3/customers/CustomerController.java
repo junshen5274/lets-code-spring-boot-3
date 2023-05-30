@@ -6,12 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.hateoas.CollectionModel;
-import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.RepresentationModel;
 import org.springframework.hateoas.server.ExposesResourceFor;
 import org.springframework.hateoas.server.mvc.RepresentationModelAssemblerSupport;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -55,17 +52,6 @@ class CustomerController {
      *      }
      * }
      */
-    /*@GetMapping("/customers/{id}")
-    HttpEntity<CustomerModel> customerById(@PathVariable Integer id) {
-        var customer = this.customerService.findCustomerById(id);
-        var customerRepresentationModel = new CustomerModel(customer);
-        // provide the link so that the invoker knows where to go
-        var link = linkTo(methodOn(CustomerHttpController.class).customers()).withRel("customers");
-        customerRepresentationModel.add(link);
-        customerRepresentationModel.add(linkTo(methodOn(CustomerHttpController.class).customerById(id)).withSelfRel());
-        return ResponseEntity.ok(customerRepresentationModel);
-    }*/
-
     @GetMapping("{id}")
     CustomerModel customerById(@PathVariable Integer id) {
         return this.customerModelAssembler.toModel(this.customerService.findCustomerById(id));
@@ -84,14 +70,6 @@ class CustomerController {
      *      }
      * }
      */
-    /*@GetMapping
-    HttpEntity<CollectionModel<Customer>> customers() {
-        var customers = this.customerService.all();
-        var customersRepresentationModel = CollectionModel.of(customers).withFallbackType(Customer.class);
-        customersRepresentationModel.add(linkTo(methodOn(CustomerController.class).customers()).withSelfRel());
-        customersRepresentationModel.add(linkTo(methodOn(CustomerController.class).customerById(null)).withRel("customer-by-id"));
-        return ResponseEntity.ok(customersRepresentationModel);
-    }*/
     @GetMapping
     CollectionModel<CustomerModel> customers() {
         var customers = this.customerService.all();
@@ -105,13 +83,6 @@ class CustomerController {
 class CustomerModel extends RepresentationModel<CustomerModel> {
     private final Customer customer;
 }
-
-/*@Data
-@EqualsAndHashCode(callSuper = true)
-@RequiredArgsConstructor
-class CustomersModel extends CollectionModel<CustomerModel> {
-    private final Collection<Customer> customers;
-}*/
 
 @Component
 class CustomerModelAssembler extends RepresentationModelAssemblerSupport<Customer, CustomerModel> {
@@ -149,45 +120,4 @@ class HateosConfiguration {
     }*/
 }
 
-/*class CustomerRepresentationModelAssemblerSupport extends
-        RepresentationModelAssemblerSupport<Customer, CustomerModel> {
-
-    *//**
-     * Creates a new {@link RepresentationModelAssemblerSupport} using the given controller class and resource type.
-     *
-     * @param controllerClass must not be {@literal null}.
-     * @param resourceType    must not be {@literal null}.
-     *//*
-    public CustomerRepresentationModelAssemblerSupport(
-            Class<?> controllerClass,
-            Class<CustomerModel> resourceType) {
-        super(controllerClass, resourceType);
-    }
-
-    @Override
-    public CustomerModel toModel(Customer entity) {
-        return new CustomerModel(entity);
-    }
-}
-
-@Component
-class CustomerModelProcessor implements RepresentationModelProcessor<CustomerModel> {
-
-    private final @NonNull EntityLinks entityLinks;
-    public static final String UNSUBSCRIBE_REL = "unsubscribe";
-
-    CustomerModelProcessor(@NonNull EntityLinks entityLinks) {
-        this.entityLinks = entityLinks;
-    }
-
-    @Override
-    public CustomerModel process(CustomerModel resource) {
-        var typedEntityLinks = entityLinks.forType(Customer::id);
-        var customer = resource.getCustomer();
-        var customerLink = typedEntityLinks.linkForItemResource(customer);
-
-        return resource
-                .addIf(!customer.subscribed(), () -> customerLink.withRel(UNSUBSCRIBE_REL));
-    }
-}*/
 

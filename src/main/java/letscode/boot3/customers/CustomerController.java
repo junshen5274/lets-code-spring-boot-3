@@ -9,12 +9,10 @@ import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.RepresentationModel;
 import org.springframework.hateoas.server.ExposesResourceFor;
 import org.springframework.hateoas.server.mvc.RepresentationModelAssemblerSupport;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
@@ -45,11 +43,22 @@ class CustomerController {
      * This endpoint will return below response:
      *
      * {
-     * "customer":{"id":1,"name":"Maria"},
-     * "_links":
-     *      {"customers":{"href":"http://localhost:8080/customers"},
-     *       "self":{"href":"http://localhost:8080/customers/1"}
-     *      }
+     *   "customer": {
+     *     "id": 1,
+     *     "name": "Ernie",
+     *     "subscribed": true
+     *   },
+     *   "_links": {
+     *     "cancelSubscription": {
+     *       "href": "http://localhost:8080/customers/1/subscription"
+     *     },
+     *     "customers": {
+     *       "href": "http://localhost:8080/customers"
+     *     },
+     *     "self": {
+     *       "href": "http://localhost:8080/customers/1"
+     *     }
+     *   }
      * }
      */
     @GetMapping("{id}")
@@ -62,18 +71,60 @@ class CustomerController {
      * This endpoint will return below response:
      *
      * {
-     * "customers":[{"id":1,"name":"Maria"},{"id":2,"name":"Ernie"}],
-     * "_links":
-     *      {
-     *      "self":{"href":"http://localhost:8080/customers"},
-     *      "customer-by-id":{"href":"http://localhost:8080/customers/{id}","templated":true}
-     *      }
+     *   "_embedded": {
+     *     "customerModelList": [
+     *       {
+     *         "customer": {
+     *           "id": 2,
+     *           "name": "Maria",
+     *           "subscribed": false
+     *         },
+     *         "_links": {
+     *           "customers": {
+     *             "href": "http://localhost:8080/customers"
+     *           },
+     *           "self": {
+     *             "href": "http://localhost:8080/customers/2"
+     *           }
+     *         }
+     *       },
+     *       {
+     *         "customer": {
+     *           "id": 1,
+     *           "name": "Ernie",
+     *           "subscribed": true
+     *         },
+     *         "_links": {
+     *           "cancelSubscription": {
+     *             "href": "http://localhost:8080/customers/1/subscription"
+     *           },
+     *           "customers": {
+     *             "href": "http://localhost:8080/customers"
+     *           },
+     *           "self": {
+     *             "href": "http://localhost:8080/customers/1"
+     *           }
+     *         }
+     *       }
+     *     ]
+     *   },
+     *   "_links": {
+     *     "customer-by-id": {
+     *       "href": "http://localhost:8080/customers/{id}",
+     *       "templated": true
+     *     }
+     *   }
      * }
      */
     @GetMapping
     CollectionModel<CustomerModel> customers() {
         var customers = this.customerService.all();
         return this.customerModelAssembler.toCollectionModel(customers);
+    }
+
+    @DeleteMapping("{id}/subscription")
+    ResponseEntity<?> deleteSubscription(@PathVariable Integer id) {
+        return ResponseEntity.ok().build();
     }
 }
 
@@ -94,6 +145,9 @@ class CustomerModelAssembler extends RepresentationModelAssemblerSupport<Custome
     @Override
     public CustomerModel toModel(Customer entity) {
         var customerModel = new CustomerModel(entity);
+        customerModel.addIf(entity.subscribed(), () -> linkTo(methodOn(CustomerController.class).
+                deleteSubscription(entity.id())).
+                withRel("cancelSubscription"));
         customerModel.add(linkTo(methodOn(CustomerController.class).customers()).withRel("customers"));
         customerModel.add(linkTo(methodOn(CustomerController.class).customerById(entity.id())).withSelfRel());
         return customerModel;
@@ -102,22 +156,9 @@ class CustomerModelAssembler extends RepresentationModelAssemblerSupport<Custome
     @Override
     public CollectionModel<CustomerModel> toCollectionModel(Iterable<? extends Customer> entities) {
         var cm = super.toCollectionModel(entities);
-        cm.add(linkTo(methodOn(CustomerController.class).customers()).withSelfRel());
         cm.add(linkTo(methodOn(CustomerController.class).customerById(null)).withRel("customer-by-id"));
         return cm;
     }
-}
-
-@Configuration
-class HateosConfiguration {
-
-    /*@Bean
-    CustomerRepresentationModelAssemblerSupport customerRepresentationModelAssemblerSupport() {
-        return new CustomerRepresentationModelAssemblerSupport(
-                CustomerHttpController.class,
-                CustomerModel.class
-        );
-    }*/
 }
 
 

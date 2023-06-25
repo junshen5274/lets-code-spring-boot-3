@@ -26,6 +26,8 @@ dependencies {
 //	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 //	implementation 'org.springframework.boot:spring-boot-starter-mustache'
 	implementation 'org.springframework.boot:spring-boot-starter-hateoas'
+	implementation 'org.springframework.boot:spring-boot-starter-graphql'
+	testImplementation 'org.springframework.graphql:spring-graphql-test'
 }
 
 tasks.named('test') {
